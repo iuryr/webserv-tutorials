@@ -66,11 +66,12 @@ int main(void)
 	epoll_fd = epoll_create1(0);
 
 	//Adding sock_fd to epoll instance to monitor
-	//First we need to populate a struct epoll_event to passa to the systemcall
-	struct epoll_event ev;
-	ev.data.fd = sock_fd;
-	ev.events = EPOLLIN;
-	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &ev);
+	//First we need to populate a struct epoll_event to pass to the systemcall
+	struct epoll_event ev; //declarando na stack
+	ev.data.fd = sock_fd; //qual informação estamos interessados de saber quando um fd estiver pronto para IO? O próprio fd.
+	ev.events = EPOLLIN; // qual evento estamos interessados? Nesse primeiro exemplo: leitura
+
+	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &ev); //adicionando o fds do socket na instância do epoll
 
 	struct epoll_event event_list[MAX_EVENTS];
 	int ready;
@@ -78,7 +79,7 @@ int main(void)
 	while(42)
 	{
 		println("Let's call epoll_wait()...");
-		ready = epoll_wait(epoll_fd, event_list, MAX_EVENTS, -1);
+		ready = epoll_wait(epoll_fd, event_list, MAX_EVENTS, -1); //programa vai blockar aqui e não em accept, como na outra versão
 
 		if (ready == -1)
 		{
@@ -88,7 +89,7 @@ int main(void)
 
 		println(ready << " fds ready for I/O");
 
-		for (int i = 0; i < ready; i++)
+		for (int i = 0; i < ready; i++) //sempre que epoll_wait retornar, vamos ter que loopar ao longo de todos os fds que estão aptos para alguma operação.
 		{
 			int new_fd = accept(sock_fd, NULL, NULL);
 
@@ -118,4 +119,5 @@ int main(void)
 			close(new_fd);
 		}
 	}
+	close(epoll_fd);
 }
