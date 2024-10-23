@@ -8,6 +8,8 @@
 #include <netdb.h>
 #include <unistd.h>
 
+#define MAX_EVENTS 10
+
 
 int main(void)
 {
@@ -63,43 +65,57 @@ int main(void)
 	int epoll_fd;
 	epoll_fd = epoll_create1(0);
 
-	//Adding epoll_fd to epoll instance to monitor
+	//Adding sock_fd to epoll instance to monitor
 	//First we need to populate a struct epoll_event to passa to the systemcall
 	struct epoll_event ev;
 	ev.data.fd = sock_fd;
 	ev.events = EPOLLIN;
 	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &ev);
 
+	struct epoll_event event_list[MAX_EVENTS];
+	int ready;
+
 	while(42)
 	{
-		
-		int new_fd = accept(sock_fd, NULL, NULL);
-		if (new_fd != -1)
+		println("Let's call epoll_wait()...");
+		ready = epoll_wait(epoll_fd, event_list, MAX_EVENTS, -1);
+
+		if (ready == -1)
 		{
-			println("Connection accepted");
-			
-			// Construct the HTTP response
-			const char *response =
-				"HTTP/1.1 200 OK\r\n"
-				"Content-Type: text/html\r\n"
-				"Content-Length: 13\r\n"
-				"\r\n"
-				"<h1>OIE</h1>";
+			println("epoll_wait() error");
+			exit(1);
+		}
 
-			// Send the HTTP response to the client
-			ssize_t bytes_sent = send(new_fd, response, std::strlen(response), 0);
-			if (bytes_sent == -1)
-			{
-				println("Failed to send response");
-			}
-			else
-			{
-				println("Response sent successfully");
-			}
+		println(ready << " fds ready for I/O");
 
-			// Close the connection
+		for (int i = 0; i < ready; i++)
+		{
+			int new_fd = accept(sock_fd, NULL, NULL);
+
+			if (new_fd != -1)
+			{
+				println("Connection accepted");
+				
+				// Construct the HTTP response
+				const char *response =
+					"HTTP/1.1 200 OK\r\n"
+					"Content-Type: text/html\r\n"
+					"Content-Length: 13\r\n"
+					"\r\n"
+					"<h1>OIE</h1>";
+
+				// Send the HTTP response to the client
+				ssize_t bytes_sent = send(new_fd, response, std::strlen(response), 0);
+				if (bytes_sent == -1)
+				{
+					println("Failed to send response");
+				}
+				else
+				{
+					println("Response sent successfully");
+				}
+			}
 			close(new_fd);
 		}
 	}
 }
-
