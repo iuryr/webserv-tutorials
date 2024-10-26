@@ -1,4 +1,4 @@
-NAME = blocking_fds
+NAME = fds_multiplex
 
 CC = c++
 FLAGS = -Wall -Wextra -Werror -std=c++98

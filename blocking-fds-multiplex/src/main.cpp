@@ -1,31 +1,43 @@
-#include <asm-generic/errno-base.h>
-#include <cstdlib>
-#include <unistd.h>
-#include <errno.h>
-#include <error.h>
+#include <cstdio>
 #include <fcntl.h>
-#include <stdio.h> //printf
+#include <sys/epoll.h>
+#include <unistd.h>
+#include <cstdlib>
+
+#define MAX_EVENTS 10
 
 int main(void)
 {
-	// capturar as flags do stdin
-	//int flags = fcntl(0, F_GETFL, 0);
 
-	//setar modo non-blocking para stdin
-	// if (fcntl(0, F_SETFL, flags | O_NONBLOCK) == -1)
-	// {
-	// 	printf("Could not change stdin to non-block mode");
-	// }
+	int epoll_fd = epoll_create1(0);
 
-	char* buffer = (char*) malloc(10);
+	struct epoll_event event_of_interest;
 
-	int bytes_read = read(0, buffer, 2);
-	//codigo abaixar vai rodar quando fd estiver no modo não-bloqueante
-	if (bytes_read == -1)
+	//A ausência de EPOLLET faz epoll_wait retornar sempre que o fd ainda tenha alguma coisa
+	//para ser lida do buffer
+	event_of_interest.events = EPOLLIN;
+
+	//EPOLLET faz epoll_wait blockar até um novo evento acontecer no fd de interesse
+	// event_of_interest.events = EPOLLIN | EPOLLET;
+	event_of_interest.data.fd = STDIN_FILENO;
+
+	struct epoll_event event_list[MAX_EVENTS];
+
+	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, STDIN_FILENO, &event_of_interest);
+
+	char *read_buffer = (char*) malloc(10);
+	int fds_ready;
+
+	while(42)
 	{
-		printf("Value of errno: %d\n", errno);
-		perror("Error message: ");
+		fds_ready = epoll_wait(epoll_fd, event_list, MAX_EVENTS, -1);
+		printf("fds ready for IO: %d\n", fds_ready);
+
+		for (int i = 0; i < fds_ready; i++)
+		{
+			read(event_list[i].data.fd, read_buffer, 2);
+			write(1, read_buffer, 2);
+			write(1, "\n", 1);
+		}
 	}
-	
-	write(1, buffer, 2);
 }
